@@ -33,26 +33,36 @@ window.onload = function() {
 
 // Mini App initialization
 function initMiniApp() {
+    console.log('🚀 Mini App başlatılıyor...');
     const tg = window.Telegram.WebApp;
+    
+    // Debug bilgileri
+    console.log('Telegram WebApp Object:', tg);
+    console.log('WebApp Version:', tg.version);
+    console.log('Platform:', tg.platform);
+    console.log('Is Expanded:', tg.isExpanded);
     
     // Mini App'i genişlet
     tg.expand();
+    tg.ready(); // WebApp'in hazır olduğunu Telegram'a bildir
     
     // Tema renklerini ayarla
-    document.body.style.backgroundColor = tg.backgroundColor;
+    document.body.style.backgroundColor = tg.backgroundColor || '#ffffff';
     
     try {
         // Kullanıcı verilerini al
         const initData = tg.initData;
         const initDataUnsafe = tg.initDataUnsafe;
         
-        console.log('InitData:', initData);
-        console.log('InitDataUnsafe:', initDataUnsafe);
+        console.log('📋 InitData:', initData);
+        console.log('📋 InitDataUnsafe:', initDataUnsafe);
         
-        if (initDataUnsafe.user) {
+        if (initDataUnsafe && initDataUnsafe.user) {
             // Kullanıcı bilgileri mevcut
             const user = initDataUnsafe.user;
-            console.log('Mini App User:', user);
+            console.log('👤 Mini App User:', user);
+            
+            showMessage('✅ Kullanıcı bilgileri alındı, doğrulanıyor...', 'success', 'loginMessage');
             
             // Telegram auth verilerini doğrula
             verifyMiniAppAuth({
@@ -64,11 +74,22 @@ function initMiniApp() {
                 initData: initData
             });
         } else {
-            showMessage('❌ Kullanıcı bilgilerine erişilemedi', 'error', 'loginMessage');
+            console.warn('⚠️ InitDataUnsafe.user bulunamadı');
+            console.log('InitDataUnsafe structure:', JSON.stringify(initDataUnsafe, null, 2));
+            
+            // Debug için bekleme ekleyelim
+            setTimeout(() => {
+                if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                    console.log('🔄 Retry: User data bulundu');
+                    initMiniApp();
+                } else {
+                    showMessage('❌ Kullanıcı bilgilerine erişilemedi. Mini App düzgün açıldığından emin olun.', 'error', 'loginMessage');
+                }
+            }, 1000);
         }
     } catch (error) {
-        console.error('Mini App init error:', error);
-        showMessage('❌ Mini App başlatma hatası', 'error', 'loginMessage');
+        console.error('❌ Mini App init error:', error);
+        showMessage('❌ Mini App başlatma hatası: ' + error.message, 'error', 'loginMessage');
     }
 }
 
@@ -85,7 +106,11 @@ function checkExistingSession() {
 // Mini App auth doğrulama
 async function verifyMiniAppAuth(userData) {
     try {
+        console.log('🔐 Auth başlatılıyor:', userData);
         currentTelegramUser = userData;
+        
+        console.log('📡 API Base:', API_BASE);
+        console.log('📡 Request URL:', `${API_BASE}/api/auth/miniapp`);
         
         const response = await fetch(`${API_BASE}/api/auth/miniapp`, {
             method: 'POST',
@@ -95,23 +120,42 @@ async function verifyMiniAppAuth(userData) {
             body: JSON.stringify(userData)
         });
 
-        const data = await response.json();
+        console.log('📡 Response Status:', response.status);
+        console.log('📡 Response OK:', response.ok);
 
-        if (response.ok) {
-            if (data.isNewUser) {
-                // Yeni kullanıcı - username oluşturma formunu göster
-                showUsernameForm(userData);
-            } else {
-                // Mevcut kullanıcı - profil sayfasını göster
-                localStorage.setItem('telegramUser', JSON.stringify(data.user));
-                showProfileSection(data.user);
-            }
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ Response Error:', errorText);
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const data = await response.json();
+        console.log('✅ Auth Response:', data);
+
+        if (data.isNewUser) {
+            // Yeni kullanıcı - username oluşturma formunu göster
+            console.log('👤 Yeni kullanıcı - username formu gösteriliyor');
+            showUsernameForm(userData);
         } else {
-            showMessage('❌ Doğrulama hatası: ' + data.error, 'error', 'loginMessage');
+            // Mevcut kullanıcı - profil sayfasını göster
+            console.log('✅ Mevcut kullanıcı - profil gösteriliyor');
+            localStorage.setItem('telegramUser', JSON.stringify(data.user));
+            showProfileSection(data.user);
         }
     } catch (error) {
-        console.error('Mini App auth hatası:', error);
-        showMessage('❌ Sunucu hatası oluştu!', 'error', 'loginMessage');
+        console.error('❌ Mini App auth hatası:', error);
+        
+        // Detaylı hata mesajı
+        let errorMessage = 'Sunucu hatası oluştu!';
+        if (error.message.includes('fetch')) {
+            errorMessage = 'Sunucuya bağlanılamadı. İnternet bağlantınızı kontrol edin.';
+        } else if (error.message.includes('HTTP 404')) {
+            errorMessage = 'API endpoint bulunamadı. Sunucu çalışmıyor olabilir.';
+        } else if (error.message.includes('HTTP 500')) {
+            errorMessage = 'Sunucu iç hatası. Geliştirici ile iletişime geçin.';
+        }
+        
+        showMessage('❌ ' + errorMessage, 'error', 'loginMessage');
     }
 }
 
