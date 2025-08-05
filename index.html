@@ -3,15 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test Sayfası</title>
+    <title>Kullanıcı Yönetimi</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <h1>Merhaba Dünya! 🌍</h1>
-        <p>Bu basit bir test sayfasıdır.</p>
-        <button onclick="incrementCounter()">Tıkla!</button>
-        <div id="counter">0</div>
+        <h1>👥 Kullanıcı Yönetimi</h1>
+        
+        <!-- Kullanıcı Ekleme Formu -->
+        <div class="form-section">
+            <h2>Yeni Kullanıcı Ekle</h2>
+            <form id="userForm">
+                <input type="text" id="username" placeholder="Kullanıcı adı girin..." required>
+                <button type="submit">Kaydet</button>
+            </form>
+            <div id="message"></div>
+        </div>
+
+        <!-- Kullanıcı Listesi -->
+        <div class="users-section">
+            <h2>📋 Kayıtlı Kullanıcılar</h2>
+            <button onclick="loadUsers()" class="refresh-btn">🔄 Yenile</button>
+            <div id="usersList" class="users-list">
+                <p>Kullanıcılar yükleniyor...</p>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>
