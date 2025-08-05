@@ -5,6 +5,11 @@ const path = require('path');
 const crypto = require('crypto');
 require('dotenv').config();
 
+// Import route modules
+const { router: authRouter, setPool } = require('./routes/auth');
+const protectedRouter = require('./routes/protected');
+const { optionalAuth } = require('./middleware/auth');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -15,6 +20,7 @@ const TELEGRAM_BOT_TOKEN = '8475749598:AAHZ0NfuBj5iNLecdb3Us_Sipx2_JQHubH0';
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // PostgreSQL bağlantısı
 const pool = new Pool({
@@ -35,15 +41,25 @@ async function createTable() {
         last_name VARCHAR(100),
         photo_url TEXT,
         auth_date BIGINT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    
+    // Create index for better performance
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_users_telegram_id ON users(telegram_id);
+    `);
+    
     client.release();
     console.log('Users tablosu başarıyla oluşturuldu');
   } catch (err) {
     console.error('Tablo oluşturma hatası:', err);
   }
 }
+
+// Set pool for auth routes
+setPool(pool);
 
 // Telegram Auth Doğrulama Fonksiyonu
 function verifyTelegramAuth(authData) {
@@ -68,8 +84,10 @@ function verifyTelegramAuth(authData) {
 }
 
 // API Routes
+app.use('/api/auth', authRouter);
+app.use('/api/protected', protectedRouter);
 
-// Mini App Auth Endpoint (initData doğrulama)
+// Legacy Mini App Auth Endpoint (moved to routes/auth.js)
 function verifyMiniAppInitData(initData) {
   try {
     const urlParams = new URLSearchParams(initData);
@@ -253,6 +271,11 @@ app.get('/api/users', async (req, res) => {
 // Ana sayfa
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Korumalı sayfa
+app.get('/protected', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'protected.html'));
 });
 
 // Server başlat

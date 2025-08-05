@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Korumalı Sayfa</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Korumalı Sayfa</h1>
+        
+        <div class="protected-content" id="protectedContent" style="display: none;">
+            <h2>✅ Erişim Onaylandı!</h2>
+            <div id="userInfo"></div>
+            <div id="dashboardData"></div>
+            
+            <div class="protected-actions">
+                <button onclick="loadProfile()" class="action-btn">📋 Profil Bilgileri</button>
+                <button onclick="loadSettings()" class="action-btn">⚙️ Ayarlar</button>
+                <button onclick="loadDashboard()" class="action-btn">📊 Dashboard</button>
+                <button onclick="refreshToken()" class="action-btn">🔄 Token Yenile</button>
+            </div>
+            
+            <button onclick="goHome()" class="back-btn">🏠 Ana Sayfaya Dön</button>
+        </div>
+        
+        <div class="access-denied" id="accessDenied" style="display: none;">
+            <h2>❌ Erişim Reddedildi</h2>
+            <p>Bu sayfaya erişmek için giriş yapmanız gerekiyor.</p>
+            <div id="errorMessage"></div>
+            <button onclick="goHome()" class="back-btn">🏠 Ana Sayfaya Dön</button>
+        </div>
+        
+        <div class="loading" id="loading">
+            <h2>🔄 Yetkilendirme Kontrol Ediliyor...</h2>
+            <p>Lütfen bekleyin...</p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        
+        // Page load
+        window.onload = function() {
+            console.log('Protected page loaded');
+            checkAuthentication();
+        };
+        
+        // Check if user is authenticated
+        async function checkAuthentication() {
+            try {
+                const token = localStorage.getItem('authToken');
+                
+                if (!token) {
+                    showAccessDenied('Token bulunamadı');
+                    return;
+                }
+                
+                const response = await fetch(`${API_BASE}/api/auth/session`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showProtectedContent(data.user);
+                } else {
+                    const error = await response.json();
+                    showAccessDenied(error.error || 'Geçersiz token');
+                }
+                
+            } catch (error) {
+                console.error('Auth check error:', error);
+                showAccessDenied('Sunucu hatası');
+            }
+        }
+        
+        // Show protected content
+        function showProtectedContent(user) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('accessDenied').style.display = 'none';
+            document.getElementById('protectedContent').style.display = 'block';
+            
+            document.getElementById('userInfo').innerHTML = `
+                <div class="user-info-card">
+                    <h3>👤 Kullanıcı Bilgileri</h3>
+                    <p><strong>Username:</strong> ${user.username}</p>
+                    <p><strong>Ad:</strong> ${user.first_name} ${user.last_name || ''}</p>
+                    <p><strong>Telegram ID:</strong> ${user.telegram_id}</p>
+                    <p><strong>Kayıt Tarihi:</strong> ${new Date(user.created_at).toLocaleDateString('tr-TR')}</p>
+                </div>
+            `;
+        }
+        
+        // Show access denied
+        function showAccessDenied(message) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('protectedContent').style.display = 'none';
+            document.getElementById('accessDenied').style.display = 'block';
+            document.getElementById('errorMessage').innerHTML = `<p class="error">🚨 ${message}</p>`;
+        }
+        
+        // Load profile data
+        async function loadProfile() {
+            try {
+                const token = localStorage.getItem('authToken');
+                const response = await fetch(`${API_BASE}/api/protected/profile`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult('Profile Data', data);
+                } else {
+                    const error = await response.json();
+                    showResult('Error', error, 'error');
+                }
+            } catch (error) {
+                showResult('Error', { message: error.message }, 'error');
+            }
+        }
+        
+        // Load settings
+        async function loadSettings() {
+            try {
+                const token = localStorage.getItem('authToken');
+                const response = await fetch(`${API_BASE}/api/protected/settings`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult('Settings', data);
+                } else {
+                    const error = await response.json();
+                    showResult('Error', error, 'error');
+                }
+            } catch (error) {
+                showResult('Error', { message: error.message }, 'error');
+            }
+        }
+        
+        // Load dashboard
+        async function loadDashboard() {
+            try {
+                const token = localStorage.getItem('authToken');
+                const response = await fetch(`${API_BASE}/api/protected/dashboard`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult('Dashboard', data);
+                } else {
+                    const error = await response.json();
+                    showResult('Error', error, 'error');
+                }
+            } catch (error) {
+                showResult('Error', { message: error.message }, 'error');
+            }
+        }
+        
+        // Refresh token
+        async function refreshToken() {
+            try {
+                const token = localStorage.getItem('authToken');
+                const response = await fetch(`${API_BASE}/api/auth/refresh`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem('authToken', data.token);
+                    showResult('Token Refreshed', { newToken: data.token.substring(0, 20) + '...' });
+                } else {
+                    const error = await response.json();
+                    showResult('Error', error, 'error');
+                }
+            } catch (error) {
+                showResult('Error', { message: error.message }, 'error');
+            }
+        }
+        
+        // Show API result
+        function showResult(title, data, type = 'success') {
+            const className = type === 'error' ? 'error-result' : 'success-result';
+            document.getElementById('dashboardData').innerHTML = `
+                <div class="${className}">
+                    <h3>${title}</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                </div>
+            `;
+        }
+        
+        // Go back to home
+        function goHome() {
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>
