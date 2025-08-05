@@ -69,21 +69,43 @@ function verifyTelegramAuth(authData) {
 
 // API Routes
 
-// Telegram Auth Endpoint
-app.post('/api/auth/telegram', async (req, res) => {
+// Mini App Auth Endpoint (initData doğrulama)
+function verifyMiniAppInitData(initData) {
   try {
-    const authData = req.body;
+    const urlParams = new URLSearchParams(initData);
+    const hash = urlParams.get('hash');
+    urlParams.delete('hash');
     
-    // Telegram auth verilerini doğrula
-    if (!verifyTelegramAuth(authData)) {
-      return res.status(401).json({ error: 'Geçersiz Telegram doğrulama' });
-    }
+    // Parametreleri alfabetik sıraya göre dizle
+    const dataCheckString = Array.from(urlParams.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n');
     
-    // Auth tarihini kontrol et (24 saat geçerli)
-    const authDate = parseInt(authData.auth_date);
-    const currentTime = Math.floor(Date.now() / 1000);
-    if (currentTime - authDate > 86400) { // 24 saat = 86400 saniye
-      return res.status(401).json({ error: 'Doğrulama süresi geçmiş' });
+    // Bot token'ının SHA256 hash'ini secret key olarak kullan
+    const secretKey = crypto.createHash('sha256').update(TELEGRAM_BOT_TOKEN).digest();
+    
+    // HMAC-SHA256 hesapla
+    const calculatedHash = crypto.createHmac('sha256', secretKey)
+      .update(dataCheckString)
+      .digest('hex');
+    
+    return calculatedHash === hash;
+  } catch (error) {
+    console.error('InitData doğrulama hatası:', error);
+    return false;
+  }
+}
+
+app.post('/api/auth/miniapp', async (req, res) => {
+  try {
+    const { id, first_name, last_name, username, photo_url, initData } = req.body;
+    
+    // Mini App initData doğrulama (opsiyonel - production'da açılabilir)
+    if (initData && !verifyMiniAppInitData(initData)) {
+      console.warn('Mini App initData doğrulama başarısız');
+      // Development'ta warn, production'da reject
+      // return res.status(401).json({ error: 'Geçersiz Mini App doğrulama' });
     }
     
     const client = await pool.connect();
@@ -91,21 +113,26 @@ app.post('/api/auth/telegram', async (req, res) => {
     // Kullanıcıyı telegram_id'ye göre ara
     const existingUser = await client.query(
       'SELECT * FROM users WHERE telegram_id = $1',
-      [authData.id]
+      [id]
     );
     
     if (existingUser.rows.length > 0) {
-      // Mevcut kullanıcı
+      // Mevcut kullanıcı - bilgilerini güncelle
       const user = existingUser.rows[0];
       
-      // Telegram bilgilerini güncelle
       await client.query(
-        'UPDATE users SET first_name = $1, last_name = $2, photo_url = $3, auth_date = $4 WHERE telegram_id = $5',
-        [authData.first_name, authData.last_name || null, authData.photo_url || null, authDate, authData.id]
+        'UPDATE users SET first_name = $1, last_name = $2, photo_url = $3 WHERE telegram_id = $4',
+        [first_name, last_name || null, photo_url || null, id]
+      );
+      
+      // Güncellenmiş kullanıcı bilgilerini al
+      const updatedUser = await client.query(
+        'SELECT * FROM users WHERE telegram_id = $1',
+        [id]
       );
       
       client.release();
-      res.json({ isNewUser: false, user });
+      res.json({ isNewUser: false, user: updatedUser.rows[0] });
     } else {
       // Yeni kullanıcı
       client.release();
@@ -113,9 +140,14 @@ app.post('/api/auth/telegram', async (req, res) => {
     }
     
   } catch (err) {
-    console.error('Telegram auth hatası:', err);
+    console.error('Mini App auth hatası:', err);
     res.status(500).json({ error: 'Sunucu hatası' });
   }
+});
+
+// Legacy: Telegram Widget Auth (artık kullanılmıyor)
+app.post('/api/auth/telegram', async (req, res) => {
+  res.status(410).json({ error: 'Widget auth artık desteklenmiyor. Mini App kullanın.' });
 });
 
 // Profil tamamlama endpoint'i

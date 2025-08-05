@@ -18,9 +18,59 @@ let currentTelegramUser = null;
 // Sayfa yüklendiğinde kontrol et
 window.onload = function() {
     console.log('Kullanıcı yönetimi sayfası yüklendi!');
-    checkExistingSession();
+    
+    // Telegram Mini App kontrolü
+    if (window.Telegram && window.Telegram.WebApp) {
+        console.log('Telegram Mini App detected!');
+        initMiniApp();
+    } else {
+        // Normal web sayfası - session kontrol et
+        checkExistingSession();
+    }
+    
     loadUsers();
 };
+
+// Mini App initialization
+function initMiniApp() {
+    const tg = window.Telegram.WebApp;
+    
+    // Mini App'i genişlet
+    tg.expand();
+    
+    // Tema renklerini ayarla
+    document.body.style.backgroundColor = tg.backgroundColor;
+    
+    try {
+        // Kullanıcı verilerini al
+        const initData = tg.initData;
+        const initDataUnsafe = tg.initDataUnsafe;
+        
+        console.log('InitData:', initData);
+        console.log('InitDataUnsafe:', initDataUnsafe);
+        
+        if (initDataUnsafe.user) {
+            // Kullanıcı bilgileri mevcut
+            const user = initDataUnsafe.user;
+            console.log('Mini App User:', user);
+            
+            // Telegram auth verilerini doğrula
+            verifyMiniAppAuth({
+                id: user.id,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                username: user.username,
+                photo_url: user.photo_url,
+                initData: initData
+            });
+        } else {
+            showMessage('❌ Kullanıcı bilgilerine erişilemedi', 'error', 'loginMessage');
+        }
+    } catch (error) {
+        console.error('Mini App init error:', error);
+        showMessage('❌ Mini App başlatma hatası', 'error', 'loginMessage');
+    }
+}
 
 // Mevcut session kontrolü
 function checkExistingSession() {
@@ -32,24 +82,17 @@ function checkExistingSession() {
     }
 }
 
-// Telegram login callback fonksiyonu
-function onTelegramAuth(user) {
-    console.log('Telegram auth success:', user);
-    currentTelegramUser = user;
-    
-    // Telegram auth verilerini doğrula
-    verifyTelegramAuth(user);
-}
-
-// Telegram auth doğrulama
-async function verifyTelegramAuth(user) {
+// Mini App auth doğrulama
+async function verifyMiniAppAuth(userData) {
     try {
-        const response = await fetch(`${API_BASE}/api/auth/telegram`, {
+        currentTelegramUser = userData;
+        
+        const response = await fetch(`${API_BASE}/api/auth/miniapp`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(user)
+            body: JSON.stringify(userData)
         });
 
         const data = await response.json();
@@ -57,19 +100,24 @@ async function verifyTelegramAuth(user) {
         if (response.ok) {
             if (data.isNewUser) {
                 // Yeni kullanıcı - username oluşturma formunu göster
-                showUsernameForm(user);
+                showUsernameForm(userData);
             } else {
                 // Mevcut kullanıcı - profil sayfasını göster
                 localStorage.setItem('telegramUser', JSON.stringify(data.user));
                 showProfileSection(data.user);
             }
         } else {
-            showMessage('❌ Telegram doğrulama hatası: ' + data.error, 'error', 'loginMessage');
+            showMessage('❌ Doğrulama hatası: ' + data.error, 'error', 'loginMessage');
         }
     } catch (error) {
-        console.error('Telegram auth hatası:', error);
+        console.error('Mini App auth hatası:', error);
         showMessage('❌ Sunucu hatası oluştu!', 'error', 'loginMessage');
     }
+}
+
+// Legacy: Telegram Widget auth (artık kullanılmıyor)
+function onTelegramAuth(user) {
+    console.log('Legacy Telegram Widget - kullanılmıyor');
 }
 
 // Username oluşturma formunu göster
@@ -79,6 +127,18 @@ function showUsernameForm(telegramUser) {
     profileSection.style.display = 'none';
     
     welcomeName.textContent = telegramUser.first_name || 'Arkadaş';
+    
+    // Mini App'te ana buton ayarla
+    if (window.Telegram && window.Telegram.WebApp) {
+        const tg = window.Telegram.WebApp;
+        tg.MainButton.text = "✅ Profili Tamamla";
+        tg.MainButton.show();
+        tg.MainButton.onClick(() => {
+            // Form submit'i tetikle
+            const submitEvent = new Event('submit');
+            usernameForm.dispatchEvent(submitEvent);
+        });
+    }
 }
 
 // Profil sayfasını göster
@@ -98,6 +158,17 @@ function showProfileSection(userData) {
             </div>
         </div>
     `;
+    
+    // Mini App'te ana buton ayarla
+    if (window.Telegram && window.Telegram.WebApp) {
+        const tg = window.Telegram.WebApp;
+        tg.MainButton.text = "🔄 Kullanıcıları Yenile";
+        tg.MainButton.show();
+        tg.MainButton.onClick(() => {
+            loadUsers();
+            tg.showAlert("Kullanıcı listesi yenilendi! 📋");
+        });
+    }
 }
 
 // Username oluşturma formu
@@ -144,6 +215,12 @@ usernameForm.addEventListener('submit', async function(e) {
 function logout() {
     localStorage.removeItem('telegramUser');
     currentTelegramUser = null;
+    
+    // Mini App'te ana buton güncelle
+    if (window.Telegram && window.Telegram.WebApp) {
+        const tg = window.Telegram.WebApp;
+        tg.MainButton.hide();
+    }
     
     loginSection.style.display = 'block';
     usernameSection.style.display = 'none';
