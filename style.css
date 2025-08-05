@@ -29,7 +29,7 @@ h2 {
 }
 
 /* Form Section */
-.form-section {
+.form-section, .login-section, .profile-section {
     background: #f8f9fa;
     padding: 1.5rem;
     border-radius: 10px;
@@ -37,7 +37,81 @@ h2 {
     border: 1px solid #e9ecef;
 }
 
-#userForm {
+/* Login Section */
+.login-section {
+    text-align: center;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+}
+
+.login-section h2 {
+    color: white;
+    margin-bottom: 1rem;
+}
+
+.login-section p {
+    margin-bottom: 1.5rem;
+    font-size: 1.1rem;
+}
+
+/* Profile Section */
+.profile-section {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+    text-align: center;
+}
+
+.profile-section h2 {
+    color: white;
+    margin-bottom: 1.5rem;
+}
+
+.profile-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.profile-photo {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.profile-details {
+    text-align: left;
+}
+
+.profile-details h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1.8rem;
+    color: white;
+}
+
+.profile-details p {
+    margin: 0.5rem 0;
+    font-size: 1rem;
+    opacity: 0.9;
+}
+
+.logout-btn {
+    background: rgba(255,255,255,0.2);
+    border: 2px solid white;
+    color: white;
+}
+
+.logout-btn:hover {
+    background: white;
+    color: #4facfe;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(255,255,255,0.3);
+}
+
+#userForm, #usernameForm {
     display: flex;
     gap: 10px;
     align-items: center;
@@ -185,9 +259,18 @@ button:hover {
         font-size: 2rem;
     }
     
-    #userForm {
+    #userForm, #usernameForm {
         flex-direction: column;
         gap: 15px;
+    }
+    
+    .profile-info {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .profile-details {
+        text-align: center;
     }
     
     .user-item {

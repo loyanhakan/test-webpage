@@ -10,14 +10,34 @@
     <div class="container">
         <h1>👥 Kullanıcı Yönetimi</h1>
         
-        <!-- Kullanıcı Ekleme Formu -->
-        <div class="form-section">
-            <h2>Yeni Kullanıcı Ekle</h2>
-            <form id="userForm">
+        <!-- Telegram Login Section -->
+        <div class="login-section" id="loginSection">
+            <h2>🚀 Telegram ile Giriş Yap</h2>
+            <p>Devam etmek için Telegram hesabınızla giriş yapın:</p>
+            <script async src="https://telegram.org/js/telegram-widget.js?22" 
+                data-telegram-login="efsob_bot" 
+                data-size="large" 
+                data-onauth="onTelegramAuth(user)" 
+                data-request-access="write"></script>
+            <div id="loginMessage"></div>
+        </div>
+
+        <!-- Username Oluşturma Formu (Telegram login sonrası gösterilir) -->
+        <div class="form-section" id="usernameSection" style="display: none;">
+            <h2>👤 Username Oluştur</h2>
+            <p>Hoş geldin <span id="welcomeName"></span>! Lütfen bir kullanıcı adı seç:</p>
+            <form id="usernameForm">
                 <input type="text" id="username" placeholder="Kullanıcı adı girin..." required>
-                <button type="submit">Kaydet</button>
+                <button type="submit">Profili Tamamla</button>
             </form>
-            <div id="message"></div>
+            <div id="usernameMessage"></div>
+        </div>
+
+        <!-- Mevcut Kullanıcı Profili (Giriş yapmış kullanıcı için) -->
+        <div class="profile-section" id="profileSection" style="display: none;">
+            <h2>✅ Hoş Geldin!</h2>
+            <div id="userProfile"></div>
+            <button onclick="logout()" class="logout-btn">Çıkış Yap</button>
         </div>
 
         <!-- Kullanıcı Listesi -->
