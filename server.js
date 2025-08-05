@@ -14,8 +14,8 @@ app.use(express.static(path.join(__dirname)));
 
 // PostgreSQL bağlantısı
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgresql://postgres:RsCtzwkRSNMnnndBYGDmpWDWnkhtXSFi@yamabiko.proxy.rlwy.net:16397/railway",
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  connectionString: process.env.DATABASE_URL || "postgresql://neondb_owner:npg_wLonvbEf3zF4@ep-solitary-smoke-a8p1cawx-pooler.eastus2.azure.neon.tech/neondb?sslmode=require&channel_binding=require",
+  ssl: { rejectUnauthorized: false }
 });
 
 // Veritabanı tablosunu oluştur
