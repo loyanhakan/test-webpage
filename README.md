@@ -1,85 +1,165 @@
-# Telegram Mini App with JWT Authentication
+# Telegram Mini App - Kullanıcı Yönetimi
 
-A complete Telegram Mini App implementation with JWT authentication, protected routes, and session management.
+Bu proje, Telegram Mini Apps platformu için geliştirilmiş, kullanıcı yetkilendirme ve yönetim sistemi içeren bir web uygulamasıdır. Telegram'ın [resmi dokümantasyonuna](https://docs.telegram-mini-apps.com/platform/authorizing-user) uygun olarak geliştirilmiştir.
 
-## Features
+## 🚀 Özellikler
 
-- 🚀 **Telegram Mini App Integration** - Native Telegram Web App support
-- 🔐 **JWT Authentication** - Secure token-based authentication
-- 🛡️ **Protected Routes** - Middleware-based route protection
-- 🔄 **Automatic Token Refresh** - Seamless session management
-- 💾 **PostgreSQL Database** - Persistent user data storage
-- 📱 **Responsive Design** - Mobile-first UI design
-- ⚡ **Real-time Updates** - Live user management
+- ✅ **Telegram Mini App Entegrasyonu** - Tam uyumlu Telegram Mini App
+- ✅ **Güvenli Kullanıcı Yetkilendirme** - Init data doğrulama ile güvenli auth
+- ✅ **Modern Middleware Yapısı** - Express.js middleware pattern
+- ✅ **PostgreSQL Entegrasyonu** - Kullanıcı verilerinin güvenli saklanması
+- ✅ **Responsive Tasarım** - Tüm cihazlarda mükemmel görünüm
+- ✅ **Production Ready** - Railway deployment desteği
 
-## Architecture
+## 🛠️ Teknolojiler
 
-### Backend Structure
-```
-├── server.js              # Main server file
-├── middleware/
-│   └── auth.js            # Authentication middleware
-├── routes/
-│   ├── auth.js            # Authentication routes
-│   └── protected.js       # Protected API routes
-├── utils/
-│   ├── session.js         # JWT session utilities
-│   └── telegramAuth.js    # Telegram verification utilities
-└── public/
-    ├── protected.html     # Protected page
-    └── auth-utils.js      # Client-side auth utilities
-```
+### Frontend
+- **HTML5/CSS3/JavaScript** - Modern web teknolojileri
+- **Telegram WebApp SDK** - Resmi Telegram SDK
+- **Responsive Design** - Mobil-first yaklaşım
 
-### Frontend Structure
-```
-├── index.html             # Main application page
-├── script.js              # Main application logic
-├── style.css              # Application styles
-└── public/
-    ├── protected.html     # Protected page
-    └── auth-utils.js      # Authentication utilities
+### Backend
+- **Node.js & Express.js** - Server framework
+- **@telegram-apps/init-data-node** - Resmi Telegram init data doğrulama
+- **PostgreSQL** - Veritabanı
+- **CORS & Security Middleware** - Güvenlik katmanları
+
+## 📦 Kurulum
+
+### 1. Bağımlılıkları Yükleyin
+```bash
+npm install
 ```
 
-## API Endpoints
+### 2. Environment Variables Ayarlayın
+```bash
+# .env dosyası oluşturun
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+DATABASE_URL=your_postgresql_connection_string
+NODE_ENV=development
+PORT=3000
+```
 
-### Authentication Routes (`/api/auth`)
-- `POST /miniapp` - Telegram Mini App authentication
-- `POST /complete-profile` - Complete user profile for new users
-- `POST /refresh` - Refresh JWT token
-- `GET /session` - Verify current session
+### 3. Telegram Bot Kurulumu
+1. [@BotFather](https://t.me/botfather) ile yeni bir bot oluşturun
+2. Bot token'ını `.env` dosyasına ekleyin
+3. Bot ayarlarından "Mini App" özelliğini aktifleştirin
+4. Mini App URL'ini ayarlayın
 
-### Protected Routes (`/api/protected`)
-- `GET /profile` - Get user profile (requires auth)
-- `GET /settings` - Get user settings (requires auth)
-- `GET /dashboard` - Get user dashboard data (requires auth)
+### 4. Uygulamayı Başlatın
+```bash
+# Development
+npm run dev
 
-### Legacy Routes
-- `GET /api/users` - Get all users (public)
-- `POST /api/auth/telegram` - Legacy widget auth (deprecated)
+# Production
+npm start
+```
 
-## Security Features
+## 🔐 Güvenlik ve Yetkilendirme
 
-### JWT Token Management
-- **Secure Token Generation** - Using cryptographically secure secrets
-- **Automatic Expiration** - 7-day token expiry
-- **Refresh Mechanism** - Automatic token refresh when needed
-- **Secure Storage** - Client-side token storage with validation
+### Authorization Header Formatı
+Uygulama, Telegram Mini Apps [resmi dokümantasyonuna](https://docs.telegram-mini-apps.com/platform/authorizing-user) uygun olarak şu authorization header formatını kullanır:
 
-### Telegram Authentication
-- **InitData Verification** - Validates Telegram Web App data
-- **Signature Verification** - HMAC-SHA256 signature validation
-- **Timestamp Validation** - Prevents replay attacks (24-hour window)
-- **Bot Token Security** - Secure bot token handling
+```
+Authorization: tma <initData>
+```
 
-### Route Protection
-- **Middleware-based Protection** - Express middleware for route security
-- **Token Validation** - JWT token verification on protected routes
-- **Error Handling** - Comprehensive error responses
-- **Session Management** - Automatic session validation
+### Middleware Yapısı
+```javascript
+// Zorunlu yetkilendirme
+app.use('/api/secure', authMiddleware);
 
-## Database Schema
+// Opsiyonel yetkilendirme
+app.use('/api/public', optionalAuthMiddleware);
+```
 
-### Users Table
+### Init Data Doğrulama
+- **@telegram-apps/init-data-node** paketi kullanılır
+- 1 saat geçerlilik süresi
+- HMAC-SHA256 imza doğrulaması
+- Bot token tabanlı güvenlik
+
+## 🌐 API Endpoints
+
+### Authentication
+- `POST /api/auth/miniapp` - Telegram Mini App kullanıcı yetkilendirme
+- `GET /api/debug/initdata` - Init data debug (development)
+
+### Users
+- `GET /api/users` - Tüm kullanıcıları listele
+- `POST /api/users/complete-profile` - Kullanıcı profil tamamlama
+
+### Legacy (Deprecated)
+- `POST /api/auth/telegram` - Eski widget auth (artık desteklenmiyor)
+
+## 📱 Telegram Mini App Kurulumu
+
+### 1. Bot Configuration
+```bash
+/newapp
+# Bot adınızı seçin
+# Mini App adını girin
+# Mini App açıklamasını girin
+# URL'nizi girin: https://your-domain.com
+```
+
+### 2. Test Etme
+1. Telegram'da botunuzu açın
+2. Mini App butonuna tıklayın
+3. Uygulama otomatik olarak açılacak
+
+### 3. Production Deployment
+Railway, Heroku, Vercel veya benzeri platformlarda deploy edebilirsiniz.
+
+## 🚀 Railway Deployment
+
+### 1. Hazırlık
+```bash
+# Railway CLI yükleyin
+npm install -g @railway/cli
+
+# Login olun
+railway login
+```
+
+### 2. Deploy
+```bash
+# Proje oluşturun
+railway init
+
+# Environment variables ayarlayın
+railway variables set TELEGRAM_BOT_TOKEN=your_token
+railway variables set DATABASE_URL=your_db_url
+railway variables set NODE_ENV=production
+
+# Deploy edin
+railway up
+```
+
+### 3. Environment Variables
+```
+TELEGRAM_BOT_TOKEN=1234567890:ABCDEFGHIJKLMNOPQRSTUVWXYZ
+DATABASE_URL=postgresql://user:pass@host:port/db
+NODE_ENV=production
+PORT=3000
+```
+
+## 🔄 Development vs Production
+
+### Development Mode
+- Legacy auth desteği
+- Detaylı hata mesajları
+- Debug endpoint aktif
+- Init data doğrulama opsiyonel
+
+### Production Mode
+- Sadece TMA auth
+- Güvenli hata mesajları
+- Debug endpoint kapalı
+- Zorunlu init data doğrulama
+
+## 📋 Database Schema
+
 ```sql
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
@@ -89,130 +169,61 @@ CREATE TABLE users (
   last_name VARCHAR(100),
   photo_url TEXT,
   auth_date BIGINT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
-CREATE INDEX idx_users_telegram_id ON users(telegram_id);
 ```
 
-## Installation & Setup
+## 🐛 Troubleshooting
 
-1. **Clone Repository**
-   ```bash
-   git clone <repository-url>
-   cd telegram-mini-app
-   ```
+### Common Issues
 
-2. **Install Dependencies**
-   ```bash
-   npm install
-   ```
+1. **Init Data Validation Failed**
+   - Bot token kontrolü yapın
+   - Telegram'dan gelen data formatını kontrol edin
+   - Zaman damgası geçerliliğini kontrol edin
 
-3. **Environment Setup**
-   ```bash
-   cp .env.example .env.local
-   # Edit .env.local with your values
-   ```
+2. **Database Connection Error**
+   - PostgreSQL bağlantı string kontrolü
+   - SSL ayarlarını kontrol edin
+   - Network erişimini kontrol edin
 
-4. **Environment Variables**
-   ```env
-   DATABASE_URL=postgresql://username:password@hostname:port/database
-   TELEGRAM_BOT_TOKEN=your_bot_token_here
-   JWT_SECRET=your_secure_jwt_secret_key_here
-   PORT=3000
-   NODE_ENV=development
-   ```
+3. **Mini App Not Loading**
+   - HTTPS zorunluluğu
+   - CORS ayarlarını kontrol edin
+   - Telegram WebApp SDK yüklenmesini kontrol edin
 
-5. **Start Development Server**
-   ```bash
-   npm run dev
-   ```
-
-## Telegram Bot Setup
-
-1. **Create Bot with @BotFather**
-   - Send `/newbot` to @BotFather
-   - Get your bot token
-
-2. **Setup Mini App**
-   - Send `/newapp` to @BotFather
-   - Provide your deployed URL
-   - Configure app settings
-
-3. **Deploy & Test**
-   - Deploy to Vercel/Heroku/Railway
-   - Test in Telegram app
-
-## Usage Examples
-
-### Client-Side Authentication
+### Debug Mode
 ```javascript
-// Check if user is authenticated
-const isAuthenticated = await verifySession();
+// Client tarafında
+console.log('Telegram WebApp:', window.Telegram.WebApp);
+console.log('Init Data:', window.Telegram.WebApp.initData);
 
-// Make authenticated API request
-const response = await makeAuthenticatedRequest('/api/protected/profile');
-
-// Go to protected page
-goToProtectedPage();
+// Server tarafında
+GET /api/debug/initdata
 ```
 
-### Server-Side Protection
-```javascript
-// Protect routes with middleware
-app.use('/api/protected', authenticateToken);
+## 📚 Referanslar
 
-// Manual token verification
-const token = extractTokenFromHeader(req.headers.authorization);
-const user = verifyToken(token);
-```
+- [Telegram Mini Apps Documentation](https://docs.telegram-mini-apps.com/)
+- [Telegram WebApp API](https://core.telegram.org/bots/webapps)
+- [@telegram-apps/init-data-node](https://www.npmjs.com/package/@telegram-apps/init-data-node)
+- [Express.js Middleware](https://expressjs.com/en/guide/using-middleware.html)
 
-## Development vs Production
+## 🤝 Katkıda Bulunma
 
-### Development Mode
-- Relaxed Telegram validation (warnings only)
-- Detailed error messages
-- Console logging enabled
+1. Fork edin
+2. Feature branch oluşturun (`git checkout -b feature/amazing-feature`)
+3. Commit edin (`git commit -m 'Add amazing feature'`)
+4. Push edin (`git push origin feature/amazing-feature`)
+5. Pull Request oluşturun
 
-### Production Mode
-- Strict Telegram validation (required)
-- Minimal error exposure
-- Performance optimizations
+## 📄 Lisans
 
-## Security Considerations
+Bu proje MIT lisansı altında lisanslanmıştır. Detaylar için `LICENSE` dosyasına bakın.
 
-1. **Environment Variables** - Never commit secrets to version control
-2. **Token Security** - Use strong JWT secrets (256-bit recommended)
-3. **HTTPS Required** - Telegram Mini Apps require HTTPS in production
-4. **Input Validation** - Validate all user inputs
-5. **Rate Limiting** - Consider implementing rate limiting
-6. **Session Timeout** - Implement appropriate session timeouts
+## 🔗 Links
 
-## Common Issues & Solutions
-
-### Token Refresh Issues
-- Ensure JWT_SECRET is consistent
-- Check token expiration handling
-- Verify refresh endpoint functionality
-
-### Telegram Authentication
-- Validate bot token format
-- Check Telegram webhook setup
-- Ensure HTTPS for production
-
-### Database Connection
-- Verify DATABASE_URL format
-- Check PostgreSQL version compatibility
-- Ensure SSL settings are correct
-
-## Contributing
-
-1. Fork the repository
-2. Create feature branch
-3. Make changes with tests
-4. Submit pull request
-
-## License
-
-MIT License - see LICENSE file for details
+- **Live Demo**: [Demo URL]
+- **Telegram Bot**: [@YourBotUsername]
+- **Documentation**: [Docs URL]
+- **Support**: [Support URL]

@@ -3,24 +3,19 @@ const { Pool } = require('pg');
 const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
+const { validate, parse } = require('@telegram-apps/init-data-node');
 require('dotenv').config();
-
-// Import route modules
-const { router: authRouter, setPool } = require('./routes/auth');
-const protectedRouter = require('./routes/protected');
-const { optionalAuth } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Telegram Bot Token
-const TELEGRAM_BOT_TOKEN = '8475749598:AAHZ0NfuBj5iNLecdb3Us_Sipx2_JQHubH0';
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8475749598:AAHZ0NfuBj5iNLecdb3Us_Sipx2_JQHubH0';
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
-app.use(express.static(path.join(__dirname, 'public')));
 
 // PostgreSQL bağlantısı
 const pool = new Pool({
@@ -41,16 +36,9 @@ async function createTable() {
         last_name VARCHAR(100),
         photo_url TEXT,
         auth_date BIGINT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    
-    // Create index for better performance
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_users_telegram_id ON users(telegram_id);
-    `);
-    
     client.release();
     console.log('Users tablosu başarıyla oluşturuldu');
   } catch (err) {
@@ -58,69 +46,130 @@ async function createTable() {
   }
 }
 
-// Set pool for auth routes
-setPool(pool);
-
-// Telegram Auth Doğrulama Fonksiyonu
+// Legacy Telegram Widget Auth (deprecated - kept for reference)
 function verifyTelegramAuth(authData) {
-  const { hash, ...data } = authData;
-  
-  // Data-check-string oluştur (alfabetik sıraya göre)
-  const dataCheckString = Object.keys(data)
-    .sort()
-    .map(key => `${key}=${data[key]}`)
-    .join('\n');
-  
-  // Bot token'ının SHA256 hash'ini secret key olarak kullan
-  const secretKey = crypto.createHash('sha256').update(TELEGRAM_BOT_TOKEN).digest();
-  
-  // HMAC-SHA256 hesapla
-  const calculatedHash = crypto.createHmac('sha256', secretKey)
-    .update(dataCheckString)
-    .digest('hex');
-  
-  // Hash'leri karşılaştır
-  return calculatedHash === hash;
+  console.warn('⚠️ Legacy Telegram Widget auth is deprecated. Use Mini App auth instead.');
+  return false; // Always fail for security
 }
 
-// API Routes
-app.use('/api/auth', authRouter);
-app.use('/api/protected', protectedRouter);
+// Middleware fonksiyonları
 
-// Legacy Mini App Auth Endpoint (moved to routes/auth.js)
-function verifyMiniAppInitData(initData) {
-  try {
-    const urlParams = new URLSearchParams(initData);
-    const hash = urlParams.get('hash');
-    urlParams.delete('hash');
-    
-    // Parametreleri alfabetik sıraya göre dizle
-    const dataCheckString = Array.from(urlParams.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, value]) => `${key}=${value}`)
-      .join('\n');
-    
-    // Bot token'ının SHA256 hash'ini secret key olarak kullan
-    const secretKey = crypto.createHash('sha256').update(TELEGRAM_BOT_TOKEN).digest();
-    
-    // HMAC-SHA256 hesapla
-    const calculatedHash = crypto.createHmac('sha256', secretKey)
-      .update(dataCheckString)
-      .digest('hex');
-    
-    return calculatedHash === hash;
-  } catch (error) {
-    console.error('InitData doğrulama hatası:', error);
-    return false;
+/**
+ * Sets init data in the specified Response object.
+ * @param res - Response object.
+ * @param initData - init data.
+ */
+function setInitData(res, initData) {
+  res.locals.initData = initData;
+}
+
+/**
+ * Extracts init data from the Response object.
+ * @param res - Response object.
+ * @returns Init data stored in the Response object. Can return undefined in case,
+ * the client is not authorized.
+ */
+function getInitData(res) {
+  return res.locals.initData;
+}
+
+/**
+ * Middleware which authorizes the external client.
+ * @param req - Request object.
+ * @param res - Response object.
+ * @param next - function to call the next middleware.
+ */
+const authMiddleware = (req, res, next) => {
+  // We expect passing init data in the Authorization header in the following format:
+  // <auth-type> <auth-data>
+  // <auth-type> must be "tma", and <auth-data> is Telegram Mini Apps init data.
+  const authHeader = req.header('authorization') || '';
+  const [authType, authData = ''] = authHeader.split(' ');
+
+  switch (authType) {
+    case 'tma':
+      try {
+        // Validate init data.
+        validate(authData, TELEGRAM_BOT_TOKEN, {
+          // We consider init data sign valid for 1 hour from their creation moment.
+          expiresIn: 3600,
+        });
+
+        // Parse init data. We will surely need it in the future.
+        setInitData(res, parse(authData));
+        return next();
+      } catch (e) {
+        console.error('TMA Auth validation error:', e.message);
+        return res.status(401).json({ error: 'Invalid Mini App authentication' });
+      }
+    // Legacy support for direct JSON data (development/testing)
+    case 'legacy':
+      // For development - direct user data without validation
+      if (process.env.NODE_ENV === 'development') {
+        try {
+          const userData = JSON.parse(authData);
+          if (userData.id && userData.first_name) {
+            return next();
+          }
+        } catch (e) {
+          // Fall through to unauthorized
+        }
+      }
+      return res.status(401).json({ error: 'Legacy auth not supported in production' });
+    default:
+      return res.status(401).json({ error: 'Unauthorized - Missing or invalid auth type' });
   }
-}
+};
 
-app.post('/api/auth/miniapp', async (req, res) => {
+/**
+ * Optional middleware - only validates if auth header exists
+ */
+const optionalAuthMiddleware = (req, res, next) => {
+  const authHeader = req.header('authorization');
+  if (!authHeader || authHeader.trim() === '') {
+    // No auth header - continue without setting init data
+    return next();
+  }
+  
+  // Auth header exists - validate it
+  return authMiddleware(req, res, next);
+};
+
+// API Routes with proper middleware
+
+/**
+ * Middleware which shows the user init data.
+ * @param req
+ * @param res - Response object.
+ * @param next - function to call the next middleware.
+ */
+const showInitDataMiddleware = (req, res, next) => {
+  const initData = getInitData(res);
+  if (!initData) {
+    return res.status(401).json({ error: 'Init data not found - unauthorized' });
+  }
+  res.json(initData);
+};
+
+// Mini App Auth Endpoint with proper validation
+app.post('/api/auth/miniapp', optionalAuthMiddleware, async (req, res) => {
   console.log('📥 Mini App Auth Request Received');
-  console.log('📋 Request Body:', JSON.stringify(req.body, null, 2));
   
   try {
-    const { id, first_name, last_name, username, photo_url, initData } = req.body;
+    let userData;
+    const initData = getInitData(res);
+    
+    if (initData && initData.user) {
+      // Use validated init data from middleware
+      userData = initData.user;
+      console.log('✅ Using validated init data from middleware');
+    } else {
+      // Fallback to request body (for development/testing)
+      userData = req.body;
+      console.log('⚠️ Using request body data (development mode)');
+    }
+    
+    const { id, first_name, last_name, username, photo_url } = userData;
     
     // Input validation
     if (!id) {
@@ -134,20 +183,6 @@ app.post('/api/auth/miniapp', async (req, res) => {
     }
     
     console.log(`👤 Processing user: ${first_name} (ID: ${id})`);
-    
-    // Mini App initData doğrulama (opsiyonel - production'da açılabilir)
-    if (initData && initData.length > 0) {
-      console.log('🔐 InitData doğrulama başlatılıyor...');
-      if (!verifyMiniAppInitData(initData)) {
-        console.warn('⚠️ Mini App initData doğrulama başarısız');
-        // Development'ta warn, production'da reject
-        // return res.status(401).json({ error: 'Geçersiz Mini App doğrulama' });
-      } else {
-        console.log('✅ InitData doğrulama başarılı');
-      }
-    } else {
-      console.log('ℹ️ InitData boş - doğrulama atlanıyor');
-    }
     
     console.log('🗃️ Database bağlantısı kuruluyor...');
     const client = await pool.connect();
@@ -212,6 +247,9 @@ app.post('/api/auth/miniapp', async (req, res) => {
   }
 });
 
+// Debug endpoint to show validated init data
+app.get('/api/debug/initdata', authMiddleware, showInitDataMiddleware);
+
 // Legacy: Telegram Widget Auth (artık kullanılmıyor)
 app.post('/api/auth/telegram', async (req, res) => {
   res.status(410).json({ error: 'Widget auth artık desteklenmiyor. Mini App kullanın.' });
@@ -271,11 +309,6 @@ app.get('/api/users', async (req, res) => {
 // Ana sayfa
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// Korumalı sayfa
-app.get('/protected', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'protected.html'));
 });
 
 // Server başlat

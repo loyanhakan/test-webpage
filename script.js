@@ -14,7 +14,6 @@ const usersListDiv = document.getElementById('usersList');
 
 // Global user data
 let currentTelegramUser = null;
-let authToken = null;
 
 // Sayfa yüklendiğinde kontrol et
 window.onload = function() {
@@ -84,7 +83,17 @@ function initMiniApp() {
                     console.log('🔄 Retry: User data bulundu');
                     initMiniApp();
                 } else {
-                    showMessage('❌ Kullanıcı bilgilerine erişilemedi. Mini App düzgün açıldığından emin olun.', 'error', 'loginMessage');
+                    // Development fallback - demo user
+                    console.log('⚠️ Development mode: Demo user kullanılıyor');
+                    const demoUser = {
+                        id: 123456789,
+                        first_name: 'Demo',
+                        last_name: 'User',
+                        username: 'demo_user',
+                        photo_url: null,
+                        initData: ''
+                    };
+                    verifyMiniAppAuth(demoUser);
                 }
             }, 1000);
         }
@@ -97,22 +106,10 @@ function initMiniApp() {
 // Mevcut session kontrolü
 function checkExistingSession() {
     const savedUser = localStorage.getItem('telegramUser');
-    const savedToken = localStorage.getItem('authToken');
-    
-    if (savedUser && savedToken) {
+    if (savedUser) {
         const userData = JSON.parse(savedUser);
-        authToken = savedToken;
         currentTelegramUser = userData;
-        
-        // Verify token is still valid
-        verifySession().then(isValid => {
-            if (isValid) {
-                showProfileSection(userData);
-            } else {
-                // Token invalid, clear storage and show login
-                logout();
-            }
-        });
+        showProfileSection(userData);
     }
 }
 
@@ -125,11 +122,30 @@ async function verifyMiniAppAuth(userData) {
         console.log('📡 API Base:', API_BASE);
         console.log('📡 Request URL:', `${API_BASE}/api/auth/miniapp`);
         
+        // Prepare headers with Authorization format: "tma <initData>"
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+        
+        // Add Authorization header if initData is available
+        if (userData.initData && userData.initData.length > 0) {
+            headers.Authorization = `tma ${userData.initData}`;
+            console.log('✅ Authorization header eklendi');
+        } else {
+            // Fallback for development - use legacy auth
+            headers.Authorization = `legacy ${JSON.stringify({
+                id: userData.id,
+                first_name: userData.first_name,
+                last_name: userData.last_name,
+                username: userData.username,
+                photo_url: userData.photo_url
+            })}`;
+            console.log('⚠️ Legacy authorization kullanılıyor (development)');
+        }
+        
         const response = await fetch(`${API_BASE}/api/auth/miniapp`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: headers,
             body: JSON.stringify(userData)
         });
 
@@ -152,16 +168,8 @@ async function verifyMiniAppAuth(userData) {
         } else {
             // Mevcut kullanıcı - profil sayfasını göster
             console.log('✅ Mevcut kullanıcı - profil gösteriliyor');
-            authToken = data.token;
             localStorage.setItem('telegramUser', JSON.stringify(data.user));
-            localStorage.setItem('authToken', data.token);
             showProfileSection(data.user);
-            
-            // Check if token needs refresh
-            if (data.tokenNeedsRefresh) {
-                console.log('🔄 Token refresh gerekli');
-                refreshAuthToken();
-            }
         }
     } catch (error) {
         console.error('❌ Mini App auth hatası:', error);
@@ -220,9 +228,6 @@ function showProfileSection(userData) {
                 <p><strong>Ad:</strong> ${userData.first_name} ${userData.last_name || ''}</p>
                 <p><strong>Telegram ID:</strong> ${userData.telegram_id}</p>
                 <p><strong>Kayıt Tarihi:</strong> ${new Date(userData.created_at).toLocaleDateString('tr-TR')}</p>
-                <div class="protected-actions">
-                    <button onclick="goToProtectedPage()" class="protected-btn">🔐 Korumalı Sayfaya Git</button>
-                </div>
             </div>
         </div>
     `;
@@ -250,7 +255,7 @@ usernameForm.addEventListener('submit', async function(e) {
     }
 
     try {
-        const response = await fetch(`${API_BASE}/api/auth/complete-profile`, {
+        const response = await fetch(`${API_BASE}/api/users/complete-profile`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -265,9 +270,7 @@ usernameForm.addEventListener('submit', async function(e) {
 
         if (response.ok) {
             showMessage(`✅ Profil başarıyla oluşturuldu!`, 'success', 'usernameMessage');
-            authToken = data.token;
             localStorage.setItem('telegramUser', JSON.stringify(data.user));
-            localStorage.setItem('authToken', data.token);
             setTimeout(() => {
                 showProfileSection(data.user);
                 loadUsers(); // Kullanıcı listesini yenile
@@ -284,9 +287,7 @@ usernameForm.addEventListener('submit', async function(e) {
 // Çıkış yap
 function logout() {
     localStorage.removeItem('telegramUser');
-    localStorage.removeItem('authToken');
     currentTelegramUser = null;
-    authToken = null;
     
     // Mini App'te ana buton güncelle
     if (window.Telegram && window.Telegram.WebApp) {
