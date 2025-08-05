@@ -98,50 +98,99 @@ function verifyMiniAppInitData(initData) {
 }
 
 app.post('/api/auth/miniapp', async (req, res) => {
+  console.log('📥 Mini App Auth Request Received');
+  console.log('📋 Request Body:', JSON.stringify(req.body, null, 2));
+  
   try {
     const { id, first_name, last_name, username, photo_url, initData } = req.body;
     
-    // Mini App initData doğrulama (opsiyonel - production'da açılabilir)
-    if (initData && !verifyMiniAppInitData(initData)) {
-      console.warn('Mini App initData doğrulama başarısız');
-      // Development'ta warn, production'da reject
-      // return res.status(401).json({ error: 'Geçersiz Mini App doğrulama' });
+    // Input validation
+    if (!id) {
+      console.error('❌ Telegram ID eksik');
+      return res.status(400).json({ error: 'Telegram ID gerekli' });
     }
     
+    if (!first_name) {
+      console.error('❌ First name eksik');
+      return res.status(400).json({ error: 'İsim gerekli' });
+    }
+    
+    console.log(`👤 Processing user: ${first_name} (ID: ${id})`);
+    
+    // Mini App initData doğrulama (opsiyonel - production'da açılabilir)
+    if (initData && initData.length > 0) {
+      console.log('🔐 InitData doğrulama başlatılıyor...');
+      if (!verifyMiniAppInitData(initData)) {
+        console.warn('⚠️ Mini App initData doğrulama başarısız');
+        // Development'ta warn, production'da reject
+        // return res.status(401).json({ error: 'Geçersiz Mini App doğrulama' });
+      } else {
+        console.log('✅ InitData doğrulama başarılı');
+      }
+    } else {
+      console.log('ℹ️ InitData boş - doğrulama atlanıyor');
+    }
+    
+    console.log('🗃️ Database bağlantısı kuruluyor...');
     const client = await pool.connect();
+    console.log('✅ Database bağlantısı başarılı');
     
     // Kullanıcıyı telegram_id'ye göre ara
+    console.log(`🔍 Kullanıcı aranıyor: telegram_id = ${id}`);
     const existingUser = await client.query(
       'SELECT * FROM users WHERE telegram_id = $1',
       [id]
     );
+    console.log(`📊 Bulunan kullanıcı sayısı: ${existingUser.rows.length}`);
     
     if (existingUser.rows.length > 0) {
       // Mevcut kullanıcı - bilgilerini güncelle
       const user = existingUser.rows[0];
+      console.log('👤 Mevcut kullanıcı bulundu:', user.username);
       
+      console.log('🔄 Kullanıcı bilgileri güncelleniyor...');
       await client.query(
         'UPDATE users SET first_name = $1, last_name = $2, photo_url = $3 WHERE telegram_id = $4',
         [first_name, last_name || null, photo_url || null, id]
       );
       
       // Güncellenmiş kullanıcı bilgilerini al
+      console.log('📊 Güncellenmiş kullanıcı bilgileri alınıyor...');
       const updatedUser = await client.query(
         'SELECT * FROM users WHERE telegram_id = $1',
         [id]
       );
       
       client.release();
+      console.log('✅ Mevcut kullanıcı işlemi tamamlandı');
       res.json({ isNewUser: false, user: updatedUser.rows[0] });
     } else {
       // Yeni kullanıcı
+      console.log('👤 Yeni kullanıcı - username oluşturma gerekli');
       client.release();
       res.json({ isNewUser: true });
     }
     
   } catch (err) {
-    console.error('Mini App auth hatası:', err);
-    res.status(500).json({ error: 'Sunucu hatası' });
+    console.error('❌ Mini App auth hatası:', err);
+    console.error('❌ Error stack:', err.stack);
+    console.error('❌ Error code:', err.code);
+    console.error('❌ Error detail:', err.detail);
+    
+    // Daha detaylı hata mesajı
+    let errorMessage = 'Sunucu hatası';
+    if (err.code === 'ECONNREFUSED') {
+      errorMessage = 'Database bağlantı hatası';
+    } else if (err.code === '42P01') {
+      errorMessage = 'Database tablo bulunamadı';
+    } else if (err.code === '42703') {
+      errorMessage = 'Database kolon bulunamadı';
+    }
+    
+    res.status(500).json({ 
+      error: errorMessage,
+      detail: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 });
 
