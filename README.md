@@ -223,7 +223,7 @@ Bu proje MIT lisansı altında lisanslanmıştır. Detaylar için `LICENSE` dosy
 
 ## 🔗 Links
 
-- **Live Demo**: [Demo URL]
-- **Telegram Bot**: [@YourBotUsername]
-- **Documentation**: [Docs URL]
-- **Support**: [Support URL]
+- **Live Demo**: [https://test-webpage-production.up.railway.app/](https://test-webpage-production.up.railway.app/)
+- **Telegram Bot**: [Bot Token: 8475749598:AAHZ0NfuBj5iNLecdb3Us_Sipx2_JQHubH0]
+- **Railway App**: [Production Ready]
+- **Documentation**: [RAILWAY_DEPLOYMENT_GUIDE.md](./RAILWAY_DEPLOYMENT_GUIDE.md)

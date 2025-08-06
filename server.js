@@ -21,11 +21,13 @@ const corsOptions = {
     }
     
     // Production'da sadece belirli domain'lere izin ver
-    const allowedOrigins = [
-      'https://your-domain.com',
-      'https://t.me',
-      'https://web.telegram.org'
-    ];
+    const allowedOrigins = process.env.ALLOWED_ORIGINS 
+      ? process.env.ALLOWED_ORIGINS.split(',')
+              : [
+          'https://test-webpage-production.up.railway.app',
+          'https://t.me', 
+          'https://web.telegram.org'
+        ];
     
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
@@ -339,4 +341,4 @@ app.get('/', (req, res) => {
 app.listen(PORT, async () => {
   console.log(`Server ${PORT} portunda çalışıyor`);
   await createTable();
-}); 
+});

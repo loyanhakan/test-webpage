@@ -1,0 +1,4 @@
+TELEGRAM_BOT_TOKEN=8475749598:AAHZ0NfuBj5iNLecdb3Us_Sipx2_JQHubH0
+NODE_ENV=production
+PORT=3000
+ALLOWED_ORIGINS=https://test-webpage-production.up.railway.app,https://t.me,https://web.telegram.org
