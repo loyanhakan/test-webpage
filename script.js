@@ -61,18 +61,27 @@ function initMiniApp() {
             // Kullanıcı bilgileri mevcut
             const user = initDataUnsafe.user;
             console.log('👤 Mini App User:', user);
+            console.log('📋 Raw InitData:', initData);
             
             showMessage('✅ Kullanıcı bilgileri alındı, doğrulanıyor...', 'success', 'loginMessage');
             
-            // Telegram auth verilerini doğrula
-            verifyMiniAppAuth({
+            // InitData'dan hash ve diğer parametreleri parse et
+            const initDataParams = new URLSearchParams(initData);
+            const hash = initDataParams.get('hash');
+            
+            // Kullanıcı verisi + hash ile auth yap
+            const authData = {
                 id: user.id,
                 first_name: user.first_name,
                 last_name: user.last_name,
                 username: user.username,
                 photo_url: user.photo_url,
-                initData: initData
-            });
+                auth_date: initDataParams.get('auth_date'),
+                hash: hash
+            };
+            
+            // Telegram auth verilerini doğrula
+            verifyMiniAppAuth(authData);
         } else {
             console.warn('⚠️ InitDataUnsafe.user bulunamadı');
             console.log('InitDataUnsafe structure:', JSON.stringify(initDataUnsafe, null, 2));
@@ -91,7 +100,8 @@ function initMiniApp() {
                         last_name: 'User',
                         username: 'demo_user',
                         photo_url: null,
-                        initData: ''
+                        auth_date: Math.floor(Date.now() / 1000),
+                        hash: 'demo_hash_for_development'
                     };
                     verifyMiniAppAuth(demoUser);
                 }
@@ -120,32 +130,14 @@ async function verifyMiniAppAuth(userData) {
         currentTelegramUser = userData;
         
         console.log('📡 API Base:', API_BASE);
-        console.log('📡 Request URL:', `${API_BASE}/api/auth/miniapp`);
+        console.log('📡 Request URL:', `${API_BASE}/api/auth/telegram`);
         
-        // Prepare headers with Authorization format: "tma <initData>"
-        const headers = {
-            'Content-Type': 'application/json',
-        };
-        
-        // Add Authorization header if initData is available
-        if (userData.initData && userData.initData.length > 0) {
-            headers.Authorization = `tma ${userData.initData}`;
-            console.log('✅ Authorization header eklendi');
-        } else {
-            // Fallback for development - use legacy auth
-            headers.Authorization = `legacy ${JSON.stringify({
-                id: userData.id,
-                first_name: userData.first_name,
-                last_name: userData.last_name,
-                username: userData.username,
-                photo_url: userData.photo_url
-            })}`;
-            console.log('⚠️ Legacy authorization kullanılıyor (development)');
-        }
-        
-        const response = await fetch(`${API_BASE}/api/auth/miniapp`, {
+        // Basit JSON POST - hash doğrulaması server'da yapılacak
+        const response = await fetch(`${API_BASE}/api/auth/telegram`, {
             method: 'POST',
-            headers: headers,
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify(userData)
         });
 
@@ -161,15 +153,19 @@ async function verifyMiniAppAuth(userData) {
         const data = await response.json();
         console.log('✅ Auth Response:', data);
 
-        if (data.isNewUser) {
-            // Yeni kullanıcı - username oluşturma formunu göster
-            console.log('👤 Yeni kullanıcı - username formu gösteriliyor');
-            showUsernameForm(userData);
+        if (data.success) {
+            if (data.isNewUser) {
+                // Yeni kullanıcı - username oluşturma formunu göster
+                console.log('👤 Yeni kullanıcı - username formu gösteriliyor');
+                showUsernameForm(data.userData || userData);
+            } else {
+                // Mevcut kullanıcı - profil sayfasını göster
+                console.log('✅ Mevcut kullanıcı - profil gösteriliyor');
+                localStorage.setItem('telegramUser', JSON.stringify(data.user));
+                showProfileSection(data.user);
+            }
         } else {
-            // Mevcut kullanıcı - profil sayfasını göster
-            console.log('✅ Mevcut kullanıcı - profil gösteriliyor');
-            localStorage.setItem('telegramUser', JSON.stringify(data.user));
-            showProfileSection(data.user);
+            throw new Error(data.error || 'Bilinmeyen sunucu hatası');
         }
     } catch (error) {
         console.error('❌ Mini App auth hatası:', error);
